@@ -1,0 +1,8 @@
+{
+  "name": "Celestial Tarot & Soulmate Oracle",
+  "description": "A high-end mystical experience featuring AI Tarot, Soulmate visions, and live video consultations with ancient Oracles.",
+  "requestFramePermissions": [
+    "camera",
+    "microphone"
+  ]
+}
