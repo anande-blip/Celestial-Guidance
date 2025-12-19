@@ -20,7 +20,11 @@ export class SimliService {
       console.log('🔮 Requesting Simli session via local proxy...');
       
       // Étape 1: Appeler notre propre proxy backend pour obtenir un session_id
-      const response = await fetch('/api/simli-proxy', {
+      const response = await fetch('https://simliproxy-347552872438.europe-west1.run.app/api/simli-proxy', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
