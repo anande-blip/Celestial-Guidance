@@ -1,4 +1,5 @@
 
+
 import React, { useState, useEffect, useRef } from 'react';
 import { getGeminiService } from './services/gemini';
 import { TarotCardComponent } from './components/TarotCard';
@@ -25,7 +26,7 @@ const INITIAL_ORACLES: OracleProfile[] = [
     imagePrompt: 'Portrait of Michael', 
     baseImage: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=400&q=80', 
     simliFaceId: process.env.SIMLI_FACE_ID_MICHAEL || '', 
-    simliApiKey: process.env.SIMLI_API_KEY || '', 
+    simliApiKey: 'guinlx7mymkflendoasbtg', 
     price: 45, 
     tags: ['Solar Wisdom', 'Stability', 'Destiny'] 
   },
@@ -37,7 +38,7 @@ const INITIAL_ORACLES: OracleProfile[] = [
     imagePrompt: 'Portrait of Elara', 
     baseImage: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&w=400&q=80', 
     simliFaceId: '6de27680-7eb0-4f9c-8968-07612c155624', 
-    simliApiKey: process.env.SIMLI_API_KEY || '', 
+    simliApiKey: 'guinlx7mymkflendoasbtg', 
     price: 55, 
     tags: ['Lunar Intuition', 'Soul Ties', 'Nature'] 
   },
@@ -49,7 +50,7 @@ const INITIAL_ORACLES: OracleProfile[] = [
     imagePrompt: 'Portrait of Serafina', 
     baseImage: 'https://images.unsplash.com/photo-1531123897727-8f129e16fd3c?auto=format&fit=crop&w=400&q=80', 
     simliFaceId: process.env.SIMLI_FACE_ID_SERAFINA || '', 
-    simliApiKey: process.env.SIMLI_API_KEY || '', 
+    simliApiKey: 'guinlx7mymkflendoasbtg', 
     price: 65, 
     tags: ['Alchemy', 'Harmony', 'Eternal Love'] 
   }

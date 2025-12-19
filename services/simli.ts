@@ -17,35 +17,42 @@ export class SimliService {
 
   async startSession(): Promise<string> {
     try {
-      const response = await fetch('https://api.simli.ai/startAudioToVideoSession', {
+      console.log('🔮 Requesting Simli session via local proxy...');
+      
+      // Étape 1: Appeler notre propre proxy backend pour obtenir un session_id
+      const response = await fetch('/api/simli-proxy', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'X-API-Key': this.apiKey
-        body: 
-        
-        JSON.stringify({
-       faceId: this.faceId,
-  apiKey: this.apiKey,
-  apiVersion: 'v1',
-  isJPG: true,
-  syncAudio: true,
-  audioInputFormat: 'pcm16',
-  handleSilence: true,
-  maxSessionLength: 600,
-  maxIdleTime: 60
-})
+        },
+        body: JSON.stringify({
+          faceId: this.faceId,
+          apiKey: this.apiKey, // On envoie la clé au proxy
+        })
       });
+
+      console.log('📥 Proxy response status:', response.status);
 
       if (!response.ok) {
         const errorBody = await response.text();
-        throw new Error(`Simli API responded with status ${response.status}: ${errorBody}`);
+        console.error('❌ Proxy Error Response:', response.status, errorBody);
+        throw new Error(`Proxy server responded with status ${response.status}: ${errorBody}`);
       }
 
       const data = await response.json();
-      this.sessionId = data.session_id;
+      this.sessionId = data.sessionId;
 
-      this.ws = new WebSocket(`wss://api.simli.ai/StartAudioToVideoStream?session_id=${this.sessionId}`);
+      if (!this.sessionId) {
+        console.error("Proxy response did not contain 'sessionId'. Response:", data);
+        throw new Error("Proxy did not return a Simli session_id.");
+      }
+
+      console.log('🔑 Received session ID from proxy:', this.sessionId);
+
+      // Étape 2: Utiliser le session_id pour se connecter au WebSocket
+      const wsUrl = `wss://api.simli.ai/StartAudioToVideoStream?session_id=${this.sessionId}&apiKey=${this.apiKey}`;
+      console.log('🔌 Connecting to WebSocket:', wsUrl.replace(this.apiKey, '***'));
+      this.ws = new WebSocket(wsUrl);
       
       return new Promise((resolve, reject) => {
         if (!this.ws) {
@@ -53,22 +60,20 @@ export class SimliService {
         }
         
         this.ws.onopen = () => {
-          console.log('✅ Simli WebSocket connected');
+          console.log('✅ Simli WebSocket connected!');
           resolve(this.sessionId!);
         };
         
         this.ws.onerror = (error) => {
           console.error('❌ Simli WebSocket error:', error);
-          // FIX: Reject with a proper Error object for better logging.
-          reject(new Error('A WebSocket connection error occurred with the Simli service.'));
+          reject(new Error('WebSocket connection failed.'));
         };
 
         this.ws.onclose = (event) => {
-            console.log(`Simli WebSocket closed: Code=${event.code}, Reason='${event.reason}', WasClean=${event.wasClean}`);
-            // FIX: Add logging and reject on unclean close for better debugging.
-            if (!event.wasClean) {
-                reject(new Error(`Simli WebSocket closed unexpectedly. Code: ${event.code}.`));
-            }
+          console.log(`WebSocket closed: Code=${event.code}, Clean=${event.wasClean}, Reason=${event.reason}`);
+          if (!event.wasClean) {
+            reject(new Error(`WebSocket closed unexpectedly. Code: ${event.code}.`));
+          }
         };
       });
     } catch (error) {
@@ -82,6 +87,8 @@ export class SimliService {
       this.ws.send(audioData);
     }
   }
+
+
 
   onVideoFrame(callback: (videoData: string) => void) {
     if (this.ws) {

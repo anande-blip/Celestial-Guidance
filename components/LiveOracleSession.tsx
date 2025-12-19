@@ -3,6 +3,7 @@ import { GoogleGenAI, LiveServerMessage, Modality } from "@google/genai";
 import { Mic, MicOff, Sparkles, Timer, ShieldAlert, Waves } from 'lucide-react';
 import { OracleProfile } from '../types';
 import { arrayBufferToBase64, float32ToInt16, base64ToUint8Array, int16ToFloat32 } from '../utils/audio-utils';
+import { SimliService } from '../services/simli';
 
 interface LiveOracleSessionProps {
   oracle: OracleProfile;
@@ -20,6 +21,7 @@ export const LiveOracleSession: React.FC<LiveOracleSessionProps> = ({ oracle, av
   const [isMicMuted, setIsMicMuted] = useState(false);
   const [volume, setVolume] = useState(0);
   const [timeLeft, setTimeLeft] = useState(SESSION_DURATION);
+  const [simliConnected, setSimliConnected] = useState(false);
   
   const audioContextRef = useRef<AudioContext | null>(null);
   const mediaStreamRef = useRef<MediaStream | null>(null);
@@ -30,6 +32,8 @@ export const LiveOracleSession: React.FC<LiveOracleSessionProps> = ({ oracle, av
   const analyserRef = useRef<AnalyserNode | null>(null);
   const animationFrameRef = useRef<number>(0);
   const timerIntervalRef = useRef<number | null>(null);
+  const simliServiceRef = useRef<SimliService | null>(null);
+  const simliVideoRef = useRef<HTMLVideoElement>(null);
 
   useEffect(() => {
     return () => {
@@ -57,6 +61,7 @@ export const LiveOracleSession: React.FC<LiveOracleSessionProps> = ({ oracle, av
     if (inputSourceRef.current) try { inputSourceRef.current.disconnect(); } catch(e){}
     if (audioContextRef.current) audioContextRef.current.close();
     if (sessionRef.current) sessionRef.current.then(s => { try { s.close(); } catch(e){} });
+    if (simliServiceRef.current) simliServiceRef.current.close();
   };
 
   const startRitual = async () => {
@@ -72,6 +77,33 @@ export const LiveOracleSession: React.FC<LiveOracleSessionProps> = ({ oracle, av
           setConnectionStep(step);
           await new Promise(r => setTimeout(r, 800));
       }
+
+      // SIMLI AVATAR CONNECTION
+      const simliKey = oracle.simliApiKey;
+      const simliFaceId = oracle.simliFaceId;
+      
+      if (simliFaceId && simliKey) {
+        try {
+          setConnectionStep('Manifestation physique de l\'oracle...');
+          console.log('🔮 Connecting to Simli...');
+          const simliService = new SimliService({ apiKey: simliKey, faceId: simliFaceId });
+          simliServiceRef.current = simliService;
+          await simliService.startSession();
+          setSimliConnected(true);
+          console.log('✅ Simli connected!');
+          
+          simliService.onVideoFrame((frameData) => {
+            if (simliVideoRef.current) {
+              simliVideoRef.current.src = `data:image/jpeg;base64,${frameData}`;
+            }
+          });
+        } catch (simliError) {
+          console.error('❌ Simli connection failed:', simliError);
+          setSimliConnected(false);
+        }
+      }
+
+      setConnectionStep('Connexion spirituelle...');
 
       const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
       const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
@@ -124,6 +156,12 @@ export const LiveOracleSession: React.FC<LiveOracleSessionProps> = ({ oracle, av
                 if (modelAudio) {
                     setIsSpeaking(true);
                     const audioBytes = base64ToUint8Array(modelAudio);
+                    
+                    // SEND AUDIO TO SIMLI FOR LIP SYNC
+                    if (simliServiceRef.current && simliConnected) {
+                      simliServiceRef.current.sendAudioData(audioBytes);
+                    }
+                    
                     const float32 = int16ToFloat32(new Int16Array(audioBytes.buffer));
                     const buffer = outputAudioContext.createBuffer(1, float32.length, 24000);
                     buffer.getChannelData(0).set(float32);
@@ -199,12 +237,16 @@ export const LiveOracleSession: React.FC<LiveOracleSessionProps> = ({ oracle, av
                             <div className={`absolute inset-[-40px] rounded-full bg-${portalColor}-500/5 blur-[120px] transition-all duration-300`} style={{ transform: `scale(${speakScale})`, opacity: isSpeaking ? 0.4 : 0.1 }}></div>
                             
                             <div className="w-full h-full rounded-full overflow-hidden relative shadow-[0_0_80px_rgba(0,0,0,1)] border border-white/5 bg-zinc-950 flex items-center justify-center" style={{ maskImage: 'radial-gradient(circle, black 65%, transparent 100%)' }}>
-                                <div className="relative w-full h-full flex items-center justify-center">
-                                    <img src={avatarUrl} className={`w-full h-full object-cover transition-all duration-500 ${isSpeaking ? 'scale-105 brightness-110' : 'brightness-50 grayscale'}`} alt="Oracle Astral" />
-                                    {isSpeaking && (
-                                        <div className="absolute inset-0 bg-gradient-to-t from-emerald-500/10 to-transparent animate-pulse pointer-events-none"></div>
-                                    )}
-                                </div>
+                                {simliConnected ? (
+                                    <img ref={simliVideoRef as any} className="w-full h-full object-cover" alt="Oracle Avatar" />
+                                ) : (
+                                    <div className="relative w-full h-full flex items-center justify-center">
+                                        <img src={avatarUrl} className={`w-full h-full object-cover transition-all duration-500 ${isSpeaking ? 'scale-105 brightness-110' : 'brightness-50 grayscale'}`} alt="Oracle Astral" />
+                                        {isSpeaking && (
+                                            <div className="absolute inset-0 bg-gradient-to-t from-emerald-500/10 to-transparent animate-pulse pointer-events-none"></div>
+                                        )}
+                                    </div>
+                                )}
                             </div>
                         </div>
                     </div>
@@ -214,7 +256,7 @@ export const LiveOracleSession: React.FC<LiveOracleSessionProps> = ({ oracle, av
                             {isMicMuted ? <MicOff size={32} /> : <Mic size={32} />}
                         </button>
                         <button onClick={onEndSession} className="px-12 py-5 bg-red-950/40 border border-red-500/20 text-red-500 rounded-full font-bold uppercase tracking-[0.3em] text-[10px] hover:bg-red-500 hover:text-white transition-all">
-                            Rompre le lien
+                            Exit Session
                         </button>
                     </div>
                 </div>
